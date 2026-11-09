@@ -1,0 +1,12 @@
+﻿{
+  "name": "blue-lock-server",
+  "version": "1.0.0",
+  "description": "Blue Lock Web Game",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

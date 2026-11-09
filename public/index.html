@@ -1,0 +1,440 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blue Lock Ultimate - Server Edition</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; }
+    body { background: #111; color: white; overflow: hidden; width: 100vw; height: 100vh; }
+    
+    #game-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+    
+    /* LOGIN / MENU */
+    #login-screen { position: absolute; inset: 0; background: #000; z-index: 100; display: flex; justify-content: center; align-items: center; }
+    .login-box { background: #222; padding: 40px; border-radius: 15px; border: 2px solid #00aaff; width: 400px; text-align: center; }
+    .login-box input { width: 100%; padding: 10px; margin: 10px 0; border-radius: 5px; border: none; outline: none; }
+    .login-box button { width: 100%; padding: 10px; background: #00aaff; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 10px; }
+    
+    #lobby-screen { position: absolute; inset: 0; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); z-index: 10; display: none; flex-direction: column; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.6); padding: 15px 30px; border-radius: 15px; border: 2px solid #00aaff; }
+    .main-menu { display: flex; gap: 20px; margin-top: 30px; height: 100%; justify-content: center; align-items: center; }
+    
+    .btn-play { background: linear-gradient(90deg, #ff416c, #ff4b2b); color: white; font-size: 24px; padding: 20px; border: none; border-radius: 15px; cursor: pointer; font-weight: bold; width: 100%; max-width: 600px; margin-bottom: 20px; }
+    .mode-selection { display: none; flex-direction: column; gap: 15px; width: 100%; max-width: 600px; }
+    .mode-card { background: #222; border: 2px solid #555; padding: 20px; border-radius: 10px; cursor: pointer; text-align: center; transition: 0.2s; }
+    .mode-card:hover { border-color: #00aaff; transform: scale(1.02); }
+
+    /* HUD GAME */
+    #hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; display: none; }
+    .hud-top { display: flex; justify-content: center; padding-top: 20px; }
+    .scoreboard { background: rgba(0,0,0,0.8); padding: 10px 30px; border-radius: 10px; font-size: 28px; font-weight: bold; border: 2px solid #ffaa00; }
+    
+    #shot-type-text {
+      position: absolute; bottom: 130px; left: 50%; transform: translateX(-50%);
+      color: #00ffff; font-size: 22px; font-weight: bold; display: none;
+      text-shadow: 2px 2px 4px black; z-index: 10;
+    }
+
+    #powerBarContainer {
+      position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%);
+      width: 300px; height: 20px; background: rgba(0,0,0,0.5);
+      border: 2px solid white; border-radius: 10px; display: none; z-index: 10;
+    }
+    #powerBar { width: 0%; height: 100%; background: linear-gradient(90deg, #00ff00, #ffff00, #ff0000); border-radius: 8px; transition: width 0.05s; }
+
+    /* THẺ PHẠT */
+    #card-warning {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.95); padding: 40px 80px; border-radius: 20px;
+      border: 4px solid #fff; z-index: 999; display: none; text-align: center;
+      box-shadow: 0 0 50px rgba(255, 0, 0, 0.8); pointer-events: none;
+    }
+    #card-warning h1 { font-size: 60px; margin-bottom: 10px; text-transform: uppercase; }
+    .yellow-card h1 { color: #ffcc00; }
+    .red-card h1 { color: #ff0000; text-shadow: 0 0 20px #ff0000; }
+
+    /* NÚT TEST & HƯỚNG DẪN */
+    #test-controls { position: absolute; bottom: 20px; left: 20px; z-index: 10; display: flex; gap: 10px; }
+    #test-controls button { background: #ffaa00; border: none; padding: 10px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; color: black; }
+    #guide { position: absolute; bottom: 20px; right: 20px; z-index: 10; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 10px; font-size: 14px; line-height: 1.6; }
+
+    /* MÀN HÌNH CHỜ GHÉP TRẬN */
+    #matchmaking-screen { position: absolute; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; display: none; flex-direction: column; justify-content: center; align-items: center; }
+    .spinner { border: 8px solid #333; border-top: 8px solid #00aaff; border-radius: 50%; width: 80px; height: 80px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <!-- ĐĂNG NHẬP -->
+  <div id="login-screen">
+    <div class="login-box">
+      <h2>ĐĂNG NHẬP BLUE LOCK</h2>
+      <input type="text" id="login-user" placeholder="Tên đăng nhập">
+      <button onclick="login()">VÀO GAME</button>
+    </div>
+  </div>
+
+  <!-- SẢNH CHÍNH -->
+  <div id="lobby-screen">
+    <div class="header">
+      <h2>BLUE LOCK ULTIMATE</h2>
+      <div id="user-info">Player: <span id="lobby-name">Khách</span></div>
+    </div>
+    <div class="main-menu">
+      <div style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+        <button class="btn-play" onclick="toggleModes()">VÀO TRẬN ⚽</button>
+        <div class="mode-selection" id="mode-selection">
+          <div class="mode-card" onclick="startGame('training')"><h3>🎯 TẬP LUYỆN</h3><p>Sút bóng tự do, test thẻ phạt</p></div>
+          <div class="mode-card" onclick="showMatchmaking()"><h3>🔥 ĐÁ TRẬN (GHÉP 9 NGƯỜI)</h3><p>Tìm phòng, tự động thêm AI vào sân</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MÀN HÌNH GHÉP TRẬN -->
+  <div id="matchmaking-screen">
+    <div class="spinner"></div>
+    <h2>Đang tìm phòng...</h2>
+    <p id="matchmaking-text" style="margin-top:10px; color:#aaa;">Đang kết nối với Server...</p>
+  </div>
+
+  <!-- GAME 3D -->
+  <div id="game-container"></div>
+  
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-top">
+      <div class="scoreboard"><span id="hud-score">🔵 0 - 0 🔴</span></div>
+    </div>
+    
+    <div id="shot-type-text">SÚT THƯỜNG</div>
+    <div id="powerBarContainer"><div id="powerBar"></div></div>
+
+    <div id="card-warning">
+      <h1 id="card-type">THẺ VÀNG</h1>
+    </div>
+
+    <!-- Nút Test Thẻ Phạt (Đã sửa lỗi font) -->
+    <div id="test-controls">
+      <button onclick="triggerFoul('yellow')">Rút Thẻ Vàng</button>
+      <button onclick="triggerFoul('red')">Rút Thẻ Đỏ</button>
+    </div>
+
+    <div id="guide">
+      <b>HƯỚNG DẪN:</b><br>
+      - WASD: Di chuyển<br>
+      - Giữ J: Tích lực sút<br>
+      - Giữ J + A/D: Sút Xoáy<br>
+      - Giữ J + S: Sút Sấm Sét<br>
+      - Giữ J + W: Sút Bổng
+    </div>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
+  
+  <script type="module">
+    import * as THREE from 'three';
+
+    let playerData = { username: "Khách" };
+
+    window.login = function() {
+      const user = document.getElementById('login-user').value.trim();
+      if (!user) return alert("Nhập tên đi bạn!");
+      playerData.username = user;
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('lobby-screen').style.display = 'flex';
+      document.getElementById('lobby-name').textContent = playerData.username;
+    };
+
+    window.toggleModes = function() {
+      const m = document.getElementById('mode-selection');
+      m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
+    };
+
+    window.showMatchmaking = function() {
+      document.getElementById('matchmaking-screen').style.display = 'flex';
+      let count = 0;
+      const textEl = document.getElementById('matchmaking-text');
+      const interval = setInterval(() => {
+        count++;
+        textEl.textContent = `Đã tìm thấy ${count}/9 người chơi...`;
+        if (count >= 9) {
+          clearInterval(interval);
+          document.getElementById('matchmaking-screen').style.display = 'none';
+          startGame('rank');
+        }
+      }, 400);
+    };
+
+    window.startGame = function(mode) {
+      document.getElementById('lobby-screen').style.display = 'none';
+      document.getElementById('hud').style.display = 'block';
+      isPlaying = true;
+      init3D();
+      animate();
+    };
+
+    // ==========================================
+    // KHỞI TẠO GAME 3D
+    // ==========================================
+    let scene, camera, renderer;
+    let player, ball, goalkeeper;
+    let pLegL, pLegR, pArmL, pArmR;
+    let gkArmL, gkArmR;
+    let keys = {};
+    let isPlaying = false;
+    let lastTime = 0;
+    let score = { blue: 0, red: 0 };
+    
+    const PLAYER_HEIGHT_OFFSET = 1.8; 
+    const ballPhysics = { velocity: new THREE.Vector3(), radius: 0.4, isControlled: false, gravity: -20 };
+    const playerState = { velocityY: 0, isJumping: false };
+    
+    let isCharging = false;
+    let chargePower = 0;
+
+    function init3D() {
+      if (renderer) return;
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x87ceeb);
+      scene.fog = new THREE.Fog(0x87ceeb, 50, 200);
+      
+      camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      document.getElementById('game-container').appendChild(renderer.domElement);
+
+      scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+      const sun = new THREE.DirectionalLight(0xffffff, 1);
+      sun.position.set(50, 100, 50); sun.castShadow = true; scene.add(sun);
+
+      const grass = new THREE.Mesh(new THREE.PlaneGeometry(100, 140), new THREE.MeshStandardMaterial({ color: 0x2d8a2d }));
+      grass.rotation.x = -Math.PI / 2; grass.receiveShadow = true; scene.add(grass);
+
+      function addLine(x, z, w, l) {
+        const line = new THREE.Mesh(new THREE.PlaneGeometry(w, l), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+        line.rotation.x = -Math.PI / 2; line.position.set(x, 0.01, z); scene.add(line);
+      }
+      addLine(0, 0, 100, 0.4); addLine(-50, 0, 0.4, 140); addLine(50, 0, 0.4, 140); addLine(0, -70, 100, 0.4); addLine(0, 70, 100, 0.4); 
+
+      function createGoal(zPos) {
+        const group = new THREE.Group();
+        const mat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+        const p1 = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 6), mat); p1.position.set(-10, 3, 0); group.add(p1);
+        const p2 = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 6), mat); p2.position.set(10, 3, 0); group.add(p2);
+        const p3 = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 20), mat); p3.rotation.z = Math.PI/2; p3.position.set(0, 6, 0); group.add(p3);
+        group.position.z = zPos; return group;
+      }
+      scene.add(createGoal(-70)); scene.add(createGoal(70));
+
+      function buildCharacter(color) {
+        const pGroup = new THREE.Group();
+        const skinMat = new THREE.MeshStandardMaterial({ color: 0xffdbac }); 
+        const bodyMat = new THREE.MeshStandardMaterial({ color: color }); 
+        const limbMat = new THREE.MeshStandardMaterial({ color: 0x1a5c1a });
+
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), skinMat); head.position.y = 2.4; head.castShadow = true; pGroup.add(head);
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.2, 0.5), bodyMat); body.position.y = 1.4; body.castShadow = true; pGroup.add(body);
+        
+        const lLeg = new THREE.Group(); lLeg.add(new THREE.Mesh(new THREE.BoxGeometry(0.35, 1, 0.35), limbMat)); lLeg.children[0].position.y = -0.5; lLeg.position.set(-0.25, 0.8, 0); pGroup.add(lLeg);
+        const rLeg = new THREE.Group(); rLeg.add(new THREE.Mesh(new THREE.BoxGeometry(0.35, 1, 0.35), limbMat)); rLeg.children[0].position.y = -0.5; rLeg.position.set(0.25, 0.8, 0); pGroup.add(rLeg);
+        
+        const lArm = new THREE.Group(); lArm.add(new THREE.Mesh(new THREE.BoxGeometry(0.25, 1, 0.25), bodyMat)); lArm.children[0].position.y = -0.5; lArm.position.set(-0.575, 2, 0); pGroup.add(lArm);
+        const rArm = new THREE.Group(); rArm.add(new THREE.Mesh(new THREE.BoxGeometry(0.25, 1, 0.25), bodyMat)); rArm.children[0].position.y = -0.5; rArm.position.set(0.575, 2, 0); pGroup.add(rArm);
+
+        return { group: pGroup, lLeg, rLeg, lArm, rArm };
+      }
+
+      const pChar = buildCharacter(0x0066ff);
+      player = pChar.group; player.position.set(0, PLAYER_HEIGHT_OFFSET, 20); scene.add(player);
+      pLegL = pChar.lLeg; pLegR = pChar.rLeg; pArmL = pChar.lArm; pArmR = pChar.rArm;
+
+      const gkChar = buildCharacter(0xff0000);
+      goalkeeper = gkChar.group; goalkeeper.position.set(0, PLAYER_HEIGHT_OFFSET, -65); scene.add(goalkeeper);
+      gkArmL = gkChar.lArm; gkArmR = gkChar.rArm;
+
+      ball = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+      ball.castShadow = true; ball.position.set(0, 0.4, 0); scene.add(ball);
+
+      document.addEventListener('keydown', e => { if(isPlaying) keys[e.code] = true; });
+      document.addEventListener('keyup', e => keys[e.code] = false);
+
+      lastTime = performance.now();
+    }
+
+    function animate() {
+      if (!isPlaying) return;
+      requestAnimationFrame(animate);
+      const now = performance.now();
+      const dt = Math.min((now - lastTime) / 1000, 0.05);
+      lastTime = now;
+
+      updatePlayer(dt, now);
+      updateGoalkeeper(dt);
+      updateBall(dt);
+      updateCamera();
+      checkGoals();
+
+      renderer.render(scene, camera);
+    }
+
+    function updatePlayer(dt, now) {
+      const speed = 15;
+      const dir = new THREE.Vector3();
+      if (keys['KeyW']) dir.z -= 1; if (keys['KeyS']) dir.z += 1; if (keys['KeyA']) dir.x -= 1; if (keys['KeyD']) dir.x += 1;
+      
+      const isMoving = dir.length() > 0;
+      if (isMoving && !isCharging) {
+        dir.normalize();
+        player.position.x += dir.x * speed * dt;
+        player.position.z += dir.z * speed * dt;
+        player.rotation.y = THREE.MathUtils.lerp(player.rotation.y, Math.atan2(dir.x, dir.z), 0.2);
+        
+        const swing = Math.sin(now * 0.015) * 0.8;
+        pLegL.rotation.x = swing; pLegR.rotation.x = -swing;
+        pArmL.rotation.x = -swing; pArmR.rotation.x = swing;
+      }
+
+      player.position.x = THREE.MathUtils.clamp(player.position.x, -48, 48);
+      player.position.z = THREE.MathUtils.clamp(player.position.z, -68, 68);
+
+      const dist = new THREE.Vector2(ball.position.x - player.position.x, ball.position.z - player.position.z).length();
+      if (!ballPhysics.isControlled && dist < 1.5 && ball.position.y < 1) ballPhysics.isControlled = true;
+      
+      if (ballPhysics.isControlled) {
+        const fwd = new THREE.Vector3(Math.sin(player.rotation.y), 0, Math.cos(player.rotation.y));
+        ball.position.lerp(player.position.clone().add(fwd.multiplyScalar(1)).setY(0.4), 0.3);
+        
+        if (keys['KeyJ'] && !isCharging) {
+          isCharging = true; chargePower = 0;
+          document.getElementById('powerBarContainer').style.display = 'block';
+        }
+        
+        if (isCharging) {
+          chargePower = Math.min(1, chargePower + dt * 1.5);
+          document.getElementById('powerBar').style.width = (chargePower * 100) + '%';
+          
+          const shotText = document.getElementById('shot-type-text');
+          shotText.style.display = 'block';
+          if (keys['KeyA'] || keys['KeyD']) { shotText.textContent = "SÚT XOÁY"; shotText.style.color = "#00ffff"; }
+          else if (keys['KeyS']) { shotText.textContent = "SÚT SẤM SÉT"; shotText.style.color = "#ff3333"; }
+          else if (keys['KeyW']) { shotText.textContent = "SÚT BỔNG"; shotText.style.color = "#ffaa00"; }
+          else { shotText.textContent = "SÚT THƯỜNG"; shotText.style.color = "#ffffff"; }
+
+          if (!keys['KeyJ']) {
+            isCharging = false;
+            document.getElementById('powerBarContainer').style.display = 'none';
+            shotText.style.display = 'none';
+            
+            const finalPower = 20 + (chargePower * 40);
+            ballPhysics.isControlled = false;
+
+            if (keys['KeyA'] || keys['KeyD']) {
+              const curveDir = keys['KeyA'] ? -1 : 1;
+              ballPhysics.velocity.set(fwd.x * finalPower + curveDir * 15, 8, fwd.z * finalPower);
+            } else if (keys['KeyS']) {
+              ballPhysics.velocity.set(fwd.x * (finalPower * 1.5), 3, fwd.z * (finalPower * 1.5));
+            } else if (keys['KeyW']) {
+              ballPhysics.velocity.set(fwd.x * (finalPower * 0.8), 25, fwd.z * (finalPower * 0.8));
+            } else {
+              ballPhysics.velocity.set(fwd.x * finalPower, 5, fwd.z * finalPower);
+            }
+            chargePower = 0;
+          }
+        }
+      }
+    }
+
+    function updateGoalkeeper(dt) {
+      const targetX = ball.position.x * 0.5;
+      goalkeeper.position.x = THREE.MathUtils.lerp(goalkeeper.position.x, THREE.MathUtils.clamp(targetX, -8, 8), 0.1);
+      
+      if (ball.position.z < -50 && !ballPhysics.isControlled) {
+        if (ball.position.x > goalkeeper.position.x) {
+          gkArmR.rotation.z = -Math.PI / 2; gkArmL.rotation.z = 0;
+        } else {
+          gkArmL.rotation.z = Math.PI / 2; gkArmR.rotation.z = 0;
+        }
+      } else {
+        gkArmR.rotation.z = THREE.MathUtils.lerp(gkArmR.rotation.z, 0, 0.1);
+        gkArmL.rotation.z = THREE.MathUtils.lerp(gkArmL.rotation.z, 0, 0.1);
+      }
+    }
+
+    function updateBall(dt) {
+      if (!ballPhysics.isControlled) {
+        ballPhysics.velocity.y += ballPhysics.gravity * dt;
+        ball.position.x += ballPhysics.velocity.x * dt;
+        ball.position.y += ballPhysics.velocity.y * dt;
+        ball.position.z += ballPhysics.velocity.z * dt;
+        
+        if (ball.position.y < 0.4) {
+          ball.position.y = 0.4;
+          ballPhysics.velocity.y = -ballPhysics.velocity.y * 0.6;
+          ballPhysics.velocity.x *= 0.98; ballPhysics.velocity.z *= 0.98;
+        }
+      }
+    }
+
+    function checkGoals() {
+      if (ball.position.z < -68 && Math.abs(ball.position.x) < 10) {
+        score.blue++; resetBall();
+        document.getElementById('hud-score').textContent = `🔵 ${score.blue} - ${score.red} 🔴`;
+        flashScreen(0x00aaff);
+      }
+      if (ball.position.z > 68 && Math.abs(ball.position.x) < 10) {
+        score.red++; resetBall();
+        document.getElementById('hud-score').textContent = `🔵 ${score.blue} - ${score.red} 🔴`;
+        flashScreen(0xff3333);
+      }
+    }
+
+    function resetBall() {
+      ball.position.set(0, 0.4, 0);
+      ballPhysics.velocity.set(0,0,0);
+      ballPhysics.isControlled = false;
+      player.position.set(0, PLAYER_HEIGHT_OFFSET, 20);
+    }
+
+    function updateCamera() {
+      const camOffset = new THREE.Vector3(0, 18, 22);
+      camera.position.lerp(player.position.clone().add(camOffset), 0.1);
+      camera.lookAt(player.position.x, player.position.y, player.position.z);
+    }
+
+    function flashScreen(color) {
+      const flash = document.createElement('div');
+      flash.style.cssText = `position: fixed; inset: 0; background: #${color.toString(16).padStart(6, '0')}; opacity: 0.5; pointer-events: none; z-index: 100; transition: opacity 0.5s;`;
+      document.body.appendChild(flash);
+      setTimeout(() => flash.style.opacity = '0', 50);
+      setTimeout(() => flash.remove(), 600);
+    }
+
+    window.triggerFoul = function(type) {
+      const cardEl = document.getElementById('card-warning');
+      const typeEl = document.getElementById('card-type');
+      cardEl.className = ''; 
+      
+      if (type === 'yellow') {
+        cardEl.classList.add('yellow-card');
+        typeEl.textContent = "THẺ VÀNG ⚠️";
+      } else {
+        cardEl.classList.add('red-card');
+        typeEl.textContent = "THẺ ĐỎ 🟥";
+      }
+      cardEl.style.display = 'block';
+      setTimeout(() => { cardEl.style.display = 'none'; }, 3000);
+    };
+
+  </script>
+</body>
+</html>
