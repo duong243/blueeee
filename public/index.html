@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
@@ -57,7 +57,7 @@
     /* NÚT TEST & HƯỚNG DẪN */
     #test-controls { position: absolute; bottom: 20px; left: 20px; z-index: 10; display: flex; gap: 10px; }
     #test-controls button { background: #ffaa00; border: none; padding: 10px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; color: black; }
-    #guide { position: absolute; bottom: 20px; right: 20px; z-index: 10; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 10px; font-size: 14px; line-height: 1.6; }
+    #guide { position: absolute; bottom: 20px; right: 20px; z-index: 10; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 10px; font-size: 13px; line-height: 1.5; max-width: 200px;}
 
     /* MÀN HÌNH CHỜ GHÉP TRẬN */
     #matchmaking-screen { position: absolute; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; display: none; flex-direction: column; justify-content: center; align-items: center; }
@@ -66,7 +66,6 @@
   </style>
 </head>
 <body>
-  <!-- ĐĂNG NHẬP -->
   <div id="login-screen">
     <div class="login-box">
       <h2>ĐĂNG NHẬP BLUE LOCK</h2>
@@ -75,7 +74,6 @@
     </div>
   </div>
 
-  <!-- SẢNH CHÍNH -->
   <div id="lobby-screen">
     <div class="header">
       <h2>BLUE LOCK ULTIMATE</h2>
@@ -86,23 +84,20 @@
         <button class="btn-play" onclick="toggleModes()">VÀO TRẬN ⚽</button>
         <div class="mode-selection" id="mode-selection">
           <div class="mode-card" onclick="startGame('training')"><h3>🎯 TẬP LUYỆN</h3><p>Sút bóng tự do, test thẻ phạt</p></div>
-          <div class="mode-card" onclick="showMatchmaking()"><h3>🔥 ĐÁ TRẬN (GHÉP 9 NGƯỜI)</h3><p>Tìm phòng, tự động thêm AI vào sân</p></div>
+          <div class="mode-card" onclick="showMatchmaking()"><h3>🔥 ĐÁ TRẬN (5 VS 5)</h3><p>Ghép đội hình AI, leo rank</p></div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- MÀN HÌNH GHÉP TRẬN -->
   <div id="matchmaking-screen">
     <div class="spinner"></div>
     <h2>Đang tìm phòng...</h2>
     <p id="matchmaking-text" style="margin-top:10px; color:#aaa;">Đang kết nối với Server...</p>
   </div>
 
-  <!-- GAME 3D -->
   <div id="game-container"></div>
   
-  <!-- HUD -->
   <div id="hud">
     <div class="hud-top">
       <div class="scoreboard"><span id="hud-score">🔵 0 - 0 🔴</span></div>
@@ -115,7 +110,6 @@
       <h1 id="card-type">THẺ VÀNG</h1>
     </div>
 
-    <!-- Nút Test Thẻ Phạt (Đã sửa lỗi font) -->
     <div id="test-controls">
       <button onclick="triggerFoul('yellow')">Rút Thẻ Vàng</button>
       <button onclick="triggerFoul('red')">Rút Thẻ Đỏ</button>
@@ -126,7 +120,7 @@
       - WASD: Di chuyển<br>
       - Giữ J: Tích lực sút<br>
       - Giữ J + A/D: Sút Xoáy<br>
-      - Giữ J + S: Sút Sấm Sét<br>
+      - Giữ J + S: Sấm Sét<br>
       - Giữ J + W: Sút Bổng
     </div>
   </div>
@@ -164,19 +158,20 @@
       const textEl = document.getElementById('matchmaking-text');
       const interval = setInterval(() => {
         count++;
-        textEl.textContent = `Đã tìm thấy ${count}/9 người chơi...`;
-        if (count >= 9) {
+        textEl.textContent = `Đang tải trận đấu... (${count}/10 người chơi)`;
+        if (count >= 10) {
           clearInterval(interval);
           document.getElementById('matchmaking-screen').style.display = 'none';
-          startGame('rank');
+          startGame('rank'); // Bắt đầu trận 5v5
         }
-      }, 400);
+      }, 300);
     };
 
     window.startGame = function(mode) {
       document.getElementById('lobby-screen').style.display = 'none';
       document.getElementById('hud').style.display = 'block';
       isPlaying = true;
+      isRankMatch = (mode === 'rank');
       init3D();
       animate();
     };
@@ -188,14 +183,15 @@
     let player, ball, goalkeeper;
     let pLegL, pLegR, pArmL, pArmR;
     let gkArmL, gkArmR;
+    let aiPlayers = []; // Mảng chứa các cầu thủ AI
     let keys = {};
     let isPlaying = false;
+    let isRankMatch = false;
     let lastTime = 0;
     let score = { blue: 0, red: 0 };
     
     const PLAYER_HEIGHT_OFFSET = 1.8; 
     const ballPhysics = { velocity: new THREE.Vector3(), radius: 0.4, isControlled: false, gravity: -20 };
-    const playerState = { velocityY: 0, isJumping: false };
     
     let isCharging = false;
     let chargePower = 0;
@@ -254,14 +250,36 @@
         return { group: pGroup, lLeg, rLeg, lArm, rArm };
       }
 
+      // Người chơi
       const pChar = buildCharacter(0x0066ff);
       player = pChar.group; player.position.set(0, PLAYER_HEIGHT_OFFSET, 20); scene.add(player);
       pLegL = pChar.lLeg; pLegR = pChar.rLeg; pArmL = pChar.lArm; pArmR = pChar.rArm;
 
+      // Thủ môn
       const gkChar = buildCharacter(0xff0000);
       goalkeeper = gkChar.group; goalkeeper.position.set(0, PLAYER_HEIGHT_OFFSET, -65); scene.add(goalkeeper);
       gkArmL = gkChar.lArm; gkArmR = gkChar.rArm;
 
+      // TẠO 9 CẦU THỦ AI (4 Xanh, 5 Đỏ) nếu là trận Rank
+      aiPlayers = []; // Reset mảng
+      if (isRankMatch) {
+        for (let i = 0; i < 4; i++) {
+          // Đồng đội áo xanh
+          const ally = buildCharacter(0x0066ff);
+          ally.group.position.set(Math.random() * 40 - 20, PLAYER_HEIGHT_OFFSET, Math.random() * 40 + 10);
+          scene.add(ally.group);
+          aiPlayers.push({ mesh: ally.group, team: 'blue', legs: [ally.lLeg, ally.rLeg] });
+        }
+        for (let i = 0; i < 5; i++) {
+          // Đối thủ áo đỏ
+          const enemy = buildCharacter(0xff0000);
+          enemy.group.position.set(Math.random() * 40 - 20, PLAYER_HEIGHT_OFFSET, Math.random() * -40 - 10);
+          scene.add(enemy.group);
+          aiPlayers.push({ mesh: enemy.group, team: 'red', legs: [enemy.lLeg, enemy.rLeg] });
+        }
+      }
+
+      // Bóng
       ball = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 16), new THREE.MeshStandardMaterial({ color: 0xffffff }));
       ball.castShadow = true; ball.position.set(0, 0.4, 0); scene.add(ball);
 
@@ -280,9 +298,10 @@
 
       updatePlayer(dt, now);
       updateGoalkeeper(dt);
+      updateAIPlayers(dt, now); // Cập nhật AI
       updateBall(dt);
       updateCamera();
-      checkGoals();
+      checkGoals(); // Kiểm tra bàn thắng & bóng ra ngoài
 
       renderer.render(scene, camera);
     }
@@ -354,6 +373,24 @@
       }
     }
 
+    // AI CHẠY THEO BÓNG
+    function updateAIPlayers(dt, now) {
+      aiPlayers.forEach(ai => {
+        // Đơn giản là AI chạy về phía quả bóng
+        const dir = new THREE.Vector3(ball.position.x - ai.mesh.position.x, 0, ball.position.z - ai.mesh.position.z);
+        if (dir.length() > 2) { // Không chạy đè lên bóng
+          dir.normalize();
+          ai.mesh.position.x += dir.x * 10 * dt;
+          ai.mesh.position.z += dir.z * 10 * dt;
+          ai.mesh.rotation.y = THREE.MathUtils.lerp(ai.mesh.rotation.y, Math.atan2(dir.x, dir.z), 0.1);
+          
+          // Animation chạy
+          const swing = Math.sin(now * 0.01) * 0.8;
+          ai.legs[0].rotation.x = swing; ai.legs[1].rotation.x = -swing;
+        }
+      });
+    }
+
     function updateGoalkeeper(dt) {
       const targetX = ball.position.x * 0.5;
       goalkeeper.position.x = THREE.MathUtils.lerp(goalkeeper.position.x, THREE.MathUtils.clamp(targetX, -8, 8), 0.1);
@@ -385,16 +422,23 @@
       }
     }
 
+    // KIỂM TRA GHI BÀN VÀ BÓNG RA NGOÀI
     function checkGoals() {
+      // Ghi bàn
       if (ball.position.z < -68 && Math.abs(ball.position.x) < 10) {
-        score.blue++; resetBall();
-        document.getElementById('hud-score').textContent = `🔵 ${score.blue} - ${score.red} 🔴`;
-        flashScreen(0x00aaff);
+        score.blue++; resetBall(); updateScoreUI(); flashScreen(0x00aaff);
       }
       if (ball.position.z > 68 && Math.abs(ball.position.x) < 10) {
-        score.red++; resetBall();
-        document.getElementById('hud-score').textContent = `🔵 ${score.blue} - ${score.red} 🔴`;
-        flashScreen(0xff3333);
+        score.red++; resetBall(); updateScoreUI(); flashScreen(0xff3333);
+      }
+      
+      // Bóng ra ngoài biên dọc (X)
+      if (Math.abs(ball.position.x) > 48) {
+        resetBall(); // Tự động reset bóng về giữa sân
+      }
+      // Bóng ra ngoài biên ngang (Z) nhưng không vào gôn
+      if (Math.abs(ball.position.z) > 68 && Math.abs(ball.position.x) > 10) {
+        resetBall();
       }
     }
 
@@ -403,6 +447,15 @@
       ballPhysics.velocity.set(0,0,0);
       ballPhysics.isControlled = false;
       player.position.set(0, PLAYER_HEIGHT_OFFSET, 20);
+      
+      // Reset vị trí AI
+      aiPlayers.forEach(ai => {
+        ai.mesh.position.set(Math.random() * 40 - 20, PLAYER_HEIGHT_OFFSET, ai.team === 'blue' ? Math.random() * 40 + 10 : Math.random() * -40 - 10);
+      });
+    }
+
+    function updateScoreUI() {
+      document.getElementById('hud-score').textContent = `🔵 ${score.blue} - ${score.red} 🔴`;
     }
 
     function updateCamera() {
